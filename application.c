@@ -29,8 +29,10 @@ float dword_16470C; // weak
 // Group D, bit 2 is some form of chip enable; active low; STB
 	
 #define KP_DIO 0
-#define KB_CLK 1
+#define KP_CLK 1
 #define KP_STB 2
+
+#define KP_READKEYREGISTER 0x42
 
 // I2C
 // Group D, bit 14 is used for SCL
@@ -91,30 +93,30 @@ signed int GUI_KEYBOARD_DRIVER_Init()
 
 int CH451_GetKeyCode()
 {
-	int v3; // r4@6
 	int i; // [sp+28h] [bp-24h]@1
 	int j; // [sp+2Ch] [bp-20h]@5
 	int retKeyCode = 0; // v24, [sp+34h] [bp-18h]@1
-	char v25[20]; // [sp+38h] [bp-14h]@6 // This is the buffer that we shift data in and out
+	char buf[20]; // v25, [sp+38h] [bp-14h]@6 // This is the buffer that we use to shift data in and out
 
-	// this might shift out the data
+	// this shifts out the value KP_READKEYREGISTER (byte)66 (0x42; 0b01000010) through DIO
+	
 	w55fa93_gpio_set(GPIO_GROUP_D, KP_STB, 0);
 	for(i = 0; i <= 7; i++) {
-		w55fa93_gpio_set(GPIO_GROUP_D, KP_DIO, (66 >> i) & 1);
-		w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 0);
-		w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 1);
+		// shift out one bit at the time LSB to MSB
+		w55fa93_gpio_set(GPIO_GROUP_D, KP_DIO, (KP_READKEYREGISTER >> i) & 1);
+		w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 0);
+		w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 1);
 	}
 
 	w55fa93_gpio_set_input(GPIO_GROUP_D, KP_DIO);
-	usleep(1u);
+	usleep(1u); // sleep 1us
 
 	for(i = 0; i <= 3; i++) {
 		// More data shifting
 		for(j = 0; j <= 7; j++) {
-			w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 0);
-			v3 = *(_DWORD *)&v25[4 * i - 32];
-			*(_DWORD *)&v25[4 * i - 32] = v3 | (w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j));
-			w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 1);
+			w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 0);
+			buf[4 * i - 32] |= w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j);
+			w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 1);
 		}
 	}
 
@@ -123,9 +125,9 @@ int CH451_GetKeyCode()
 	for(i = 0; i <= 3; i++) {
 		// even more data shifting
 		for(j = 0; j <= 7; j++) {
-		  if( ((*(_DWORD *)&v25[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
+		  if(((buf[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
 			retKeyCode = 8 * i + j;
-			if( (*(_DWORD *)&v25[4 * i - 32] >> j) & 1 ) {
+			if((buf[4 * i - 32] >> j) & 1 ) {
 				retKeyCode |= 0x80u;
 				keybuf_5624[i] |= 1 << j;
 			} else {
