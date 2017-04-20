@@ -49,149 +49,138 @@ void main(...)
 
 int CH451_GetKeyCode()
 {
-  int v0; // r1@4
-  int v1; // r2@4
-  int v2; // r5@6
-  int v3; // r4@6
-  int v4; // r2@24
-  int v5; // r2@29
-  int v6; // r2@34
-  int v7; // r2@39
-  int v8; // r2@44
-  int v9; // r2@49
-  signed int v11; // [sp+0h] [bp-4Ch]@25
-  signed int v12; // [sp+4h] [bp-48h]@30
-  signed int v13; // [sp+8h] [bp-44h]@35
-  signed int v14; // [sp+Ch] [bp-40h]@40
-  signed int v15; // [sp+10h] [bp-3Ch]@45
-  signed int v16; // [sp+14h] [bp-38h]@50
-  int v17 = 0; // [sp+18h] [bp-34h]@1
-  int v18 = 0; // [sp+1Ch] [bp-30h]@1
-  int v19 = 0; // [sp+20h] [bp-2Ch]@1
-  int v20 = 0; // [sp+24h] [bp-28h]@1
-  int i; // [sp+28h] [bp-24h]@1
-  int j; // [sp+2Ch] [bp-20h]@5
-  int v23 = 66; // [sp+30h] [bp-1Ch]@1
-  int v24 = 0; // [sp+34h] [bp-18h]@1
-  char v25[20]; // [sp+38h] [bp-14h]@6
+	int v0; // r1@4
+	int v1; // r2@4
+	int v2; // r5@6
+	int v3; // r4@6
+	int v4; // r2@24
+	int v5; // r2@29
+	int v6; // r2@34
+	int v7; // r2@39
+	int v8; // r2@44
+	int v9; // r2@49
+	signed int v11; // [sp+0h] [bp-4Ch]@25
+	signed int v12; // [sp+4h] [bp-48h]@30
+	signed int v13; // [sp+8h] [bp-44h]@35
+	signed int v14; // [sp+Ch] [bp-40h]@40
+	signed int v15; // [sp+10h] [bp-3Ch]@45
+	signed int v16; // [sp+14h] [bp-38h]@50
+	int i; // [sp+28h] [bp-24h]@1
+	int j; // [sp+2Ch] [bp-20h]@5
+	int v24 = 0; // [sp+34h] [bp-18h]@1
+	char v25[20]; // [sp+38h] [bp-14h]@6 // This is the buffer that we shift data in and out
+	
+	// GPIO usage:
+	// Group D, bit 0 is used for data in and data out; DIO
+	// Group D, bit 1 is used for latching the data; latches on rising edge; CLK
+	// Group D, bit 2 is some form of chip enable; active low; STB
+	
+	#define DIO 0
+	#define CLK 1
+	#define STB 2
 
-  w55fa93_gpio_set(GPIO_GROUP_D, 2, 0);
-  for ( i = 0; i <= 7; ++i )
-  {
-    w55fa93_gpio_set(GPIO_GROUP_D, 0, (v23 >> i) & 1);
-    w55fa93_gpio_set(GPIO_GROUP_D, 1, 0);
-    w55fa93_gpio_set(GPIO_GROUP_D, 1, 1);
-  }
-  w55fa93_gpio_set_input(GPIO_GROUP_D, 0);
-  usleep(1u, v0, v1);
-  for ( i = 0; i <= 3; ++i )
-  {
-    for ( j = 0; j <= 7; ++j )
-    {
-      w55fa93_gpio_set(GPIO_GROUP_D, 1, 0);
-      v2 = i;
-      v3 = *(_DWORD *)&v25[4 * i - 32];
-      *(_DWORD *)&v25[4 * v2 - 32] = v3 | (w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j));
-      w55fa93_gpio_set(GPIO_GROUP_D, 1, 1);
-    }
-  }
-  w55fa93_gpio_set(GPIO_GROUP_D, 2, 1);
-  w55fa93_gpio_set_output(GPIO_GROUP_D, 0);
-  for ( i = 0; i <= 3; ++i ) {
-    for ( j = 0; j <= 7; ++j ) {
-      if ( ((*(_DWORD *)&v25[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
-        v24 = 8 * i + j;
-        if ( (*(_DWORD *)&v25[4 * i - 32] >> j) & 1 )
-        {
-          v24 |= 0x80u;
-          keybuf_5624[i] |= 1 << j;
-        }
-        else
-        {
-          v24 &= 0x7Fu;
-          keybuf_5624[i] &= ~(1 << j);
-        }
-        break;
-      }
-    }
-  }
-  
-  
-  if (!v24) {
-	// check if we have to perform model specific changes
-    if (motionVer != 28695 || subMotionVer == 2) {
-      if ( float2int(dword_164700) == extkey_5625 ) { // float2int == float2int
-        if ( float2int(dword_164704) == dword_1215F8 )
-        {
-          if ( float2int(dword_164708) == dword_121614 )
-          {
-            if ( float2int(dword_16470C) != dword_121618 )
-            {
-              v9 = dword_121618 == 0;
-              dword_121618 = dword_121618 == 0;
-              if ( v9 )
-                v16 = 122;
-              else
-                v16 = 250;
-              v24 = v16;
-            }
-          }
-          else
-          {
-            v8 = dword_121614 == 0;
-            dword_121614 = dword_121614 == 0;
-            if ( v8 )
-              v15 = 121;
-            else
-              v15 = 249;
-            v24 = v15;
-          }
-        }
-        else
-        {
-          v7 = dword_1215F8 == 0;
-          dword_1215F8 = dword_1215F8 == 0;
-          if ( v7 )
-            v14 = 114;
-          else
-            v14 = 242;
-          v24 = v14;
-        }
-      }
-      else
-      {
-        v6 = extkey_5625 == 0;
-        extkey_5625 = extkey_5625 == 0;
-        if ( v6 )
-          v13 = 113;
-        else
-          v13 = 241;
-        v24 = v13;
-      }
-    }
-    else if ( w55fa93_gpio_get(3, 12) == extkey_5625 )
-    {
-      if ( w55fa93_gpio_get(3, 13) != dword_1215F8 )
-      {
-        v5 = dword_1215F8 == 0;
-        dword_1215F8 = dword_1215F8 == 0;
-        if ( v5 )
-          v12 = 114;
-        else
-          v12 = 242;
-        v24 = v12;
-      }
-    }
-    else
-    {
-      v4 = extkey_5625 == 0;
-      extkey_5625 = extkey_5625 == 0;
-      if ( v4 )
-        v11 = 113;
-      else
-        v11 = 241;
-      v24 = v11;
-    }
-  }
-  return v24;
+	// this might shift out the data
+	w55fa93_gpio_set(GPIO_GROUP_D, STB, 0);
+	for(i = 0; i <= 7; i++) {
+		w55fa93_gpio_set(GPIO_GROUP_D, DIO, (66 >> i) & 1);
+		w55fa93_gpio_set(GPIO_GROUP_D, CLK, 0);
+		w55fa93_gpio_set(GPIO_GROUP_D, CLK, 1);
+	}
+
+	w55fa93_gpio_set_input(GPIO_GROUP_D, DIO);
+	usleep(1u, v0, v1);
+
+	for(i = 0; i <= 3; i++) {
+		// More data shifting
+		for(j = 0; j <= 7; j++) {
+			w55fa93_gpio_set(GPIO_GROUP_D, CLK, 0);
+			v2 = i;
+			v3 = *(_DWORD *)&v25[4 * i - 32];
+			*(_DWORD *)&v25[4 * v2 - 32] = v3 | (w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j));
+			w55fa93_gpio_set(GPIO_GROUP_D, CLK, 1);
+		}
+	}
+
+	w55fa93_gpio_set(GPIO_GROUP_D, STB, 1);
+	w55fa93_gpio_set_output(GPIO_GROUP_D, DIO);
+	for (i = 0; i <= 3; i++) {
+		// even more data shifting
+		for (j = 0; j <= 7; j++) {
+		  if ( ((*(_DWORD *)&v25[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
+			v24 = 8 * i + j;
+			if ( (*(_DWORD *)&v25[4 * i - 32] >> j) & 1 ) {
+				v24 |= 0x80u;
+				keybuf_5624[i] |= 1 << j;
+			} else {
+				v24 &= 0x7Fu;
+				keybuf_5624[i] &= ~(1 << j);
+			}
+			break;
+		  }
+		}
+	}
+
+
+	if (!v24) {
+		// check if we have to perform model specific changes
+		if (motionVer != 28695 || subMotionVer == 2) {
+			if (float2int(dword_164700) == extkey_5625) {
+				if ( float2int(dword_164704) == dword_1215F8 ) {
+					if (float2int(dword_164708) == dword_121614) {
+						if ( float2int(dword_16470C) != dword_121618 ) {
+							v9 = dword_121618 == 0;
+							dword_121618 = dword_121618 == 0;
+							if ( v9 )
+								v16 = 122;
+							else
+								v16 = 250;
+							v24 = v16;
+						}
+				  } else {
+					v8 = dword_121614 == 0;
+					dword_121614 = dword_121614 == 0;
+					if ( v8 )
+					  v15 = 121;
+					else
+					  v15 = 249;
+					v24 = v15;
+				  }
+				} else {
+				  v7 = dword_1215F8 == 0;
+				  dword_1215F8 = dword_1215F8 == 0;
+				  if ( v7 )
+					v14 = 114;
+				  else
+					v14 = 242;
+				  v24 = v14;
+				}
+			  } else {
+				v6 = extkey_5625 == 0;
+				extkey_5625 = extkey_5625 == 0;
+				if ( v6 )
+				  v13 = 113;
+				else
+				  v13 = 241;
+				v24 = v13;
+			  }
+			} else if (w55fa93_gpio_get(3, 12) == extkey_5625) {
+			  if (w55fa93_gpio_get(3, 13) != dword_1215F8) {
+				v5 = dword_1215F8 == 0;
+				dword_1215F8 = dword_1215F8 == 0;
+				if (v5)
+				  v12 = 114;
+				else
+				  v12 = 242;
+				v24 = v12;
+			  }
+			} else {
+				extkey_5625 = extkey_5625 == 0;
+				if (extkey_5625 == 0)
+					v11 = 113;
+				else
+					v11 = 241;
+				v24 = v11;
+			}
+	}
+	return v24;
 }
