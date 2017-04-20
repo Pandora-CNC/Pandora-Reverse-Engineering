@@ -21,6 +21,25 @@ float dword_164704; // weak
 float dword_164708; // weak
 float dword_16470C; // weak
 
+// GPIO usage:
+
+// Keypad
+// Group D, bit 0 is used for data in and data out; DIO
+// Group D, bit 1 is used for latching the data; latches on rising edge; CLK
+// Group D, bit 2 is some form of chip enable; active low; STB
+	
+#define KP_DIO 0
+#define KB_CLK 1
+#define KP_STB 2
+
+// I2C
+// Group D, bit 14 is used for SCL
+// Group D, bit 15 is used for SDA
+
+#define I2C_SCL 14
+#define I2C_SDA 15
+
+
 void main(...)
 {
 	...
@@ -47,72 +66,70 @@ void main(...)
     }
 }
 
+signed int GUI_KEYBOARD_DRIVER_Init()
+{
+	char v1; // [sp+4h] [bp-10h]@1	
+
+	// Initialize the keypad pins
+	// DIO, OUTPUT, HIGH
+	w55fa93_gpio_set_output(GPIO_GROUP_D, KP_DIO);
+	w55fa93_gpio_set(GPIO_GROUP_D, KP_DIO, 1);
+	// CLK, OUTPUT, HIGH
+	w55fa93_gpio_set_output(GPIO_GROUP_D, KP_CLK);
+	w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 1);
+	// STB, OUTPUT, HIGH
+	w55fa93_gpio_set_output(GPIO_GROUP_D, KP_STB);
+	w55fa93_gpio_set(GPIO_GROUP_D, KP_STB, 1);
+  
+	// Unknown pins are initialized
+	w55fa93_gpio_set_input(GPIO_GROUP_D, 12);
+	w55fa93_gpio_set_input(GPIO_GROUP_D, 13);
+
+	// Create new scanning thread
+	return pthread_create(&v1, 0, (int)ThreadReamKeyboard, 0);
+}
+
 int CH451_GetKeyCode()
 {
-	int v0; // r1@4
-	int v1; // r2@4
-	int v2; // r5@6
 	int v3; // r4@6
-	int v4; // r2@24
-	int v5; // r2@29
-	int v6; // r2@34
-	int v7; // r2@39
-	int v8; // r2@44
-	int v9; // r2@49
-	signed int v11; // [sp+0h] [bp-4Ch]@25
-	signed int v12; // [sp+4h] [bp-48h]@30
-	signed int v13; // [sp+8h] [bp-44h]@35
-	signed int v14; // [sp+Ch] [bp-40h]@40
-	signed int v15; // [sp+10h] [bp-3Ch]@45
-	signed int v16; // [sp+14h] [bp-38h]@50
 	int i; // [sp+28h] [bp-24h]@1
 	int j; // [sp+2Ch] [bp-20h]@5
-	int v24 = 0; // [sp+34h] [bp-18h]@1
+	int retKeyCode = 0; // v24, [sp+34h] [bp-18h]@1
 	char v25[20]; // [sp+38h] [bp-14h]@6 // This is the buffer that we shift data in and out
-	
-	// GPIO usage:
-	// Group D, bit 0 is used for data in and data out; DIO
-	// Group D, bit 1 is used for latching the data; latches on rising edge; CLK
-	// Group D, bit 2 is some form of chip enable; active low; STB
-	
-	#define DIO 0
-	#define CLK 1
-	#define STB 2
 
 	// this might shift out the data
-	w55fa93_gpio_set(GPIO_GROUP_D, STB, 0);
+	w55fa93_gpio_set(GPIO_GROUP_D, KP_STB, 0);
 	for(i = 0; i <= 7; i++) {
-		w55fa93_gpio_set(GPIO_GROUP_D, DIO, (66 >> i) & 1);
-		w55fa93_gpio_set(GPIO_GROUP_D, CLK, 0);
-		w55fa93_gpio_set(GPIO_GROUP_D, CLK, 1);
+		w55fa93_gpio_set(GPIO_GROUP_D, KP_DIO, (66 >> i) & 1);
+		w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 0);
+		w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 1);
 	}
 
-	w55fa93_gpio_set_input(GPIO_GROUP_D, DIO);
-	usleep(1u, v0, v1);
+	w55fa93_gpio_set_input(GPIO_GROUP_D, KP_DIO);
+	usleep(1u);
 
 	for(i = 0; i <= 3; i++) {
 		// More data shifting
 		for(j = 0; j <= 7; j++) {
-			w55fa93_gpio_set(GPIO_GROUP_D, CLK, 0);
-			v2 = i;
+			w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 0);
 			v3 = *(_DWORD *)&v25[4 * i - 32];
-			*(_DWORD *)&v25[4 * v2 - 32] = v3 | (w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j));
-			w55fa93_gpio_set(GPIO_GROUP_D, CLK, 1);
+			*(_DWORD *)&v25[4 * i - 32] = v3 | (w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j));
+			w55fa93_gpio_set(GPIO_GROUP_D, KB_CLK, 1);
 		}
 	}
 
-	w55fa93_gpio_set(GPIO_GROUP_D, STB, 1);
-	w55fa93_gpio_set_output(GPIO_GROUP_D, DIO);
-	for (i = 0; i <= 3; i++) {
+	w55fa93_gpio_set(GPIO_GROUP_D, KP_STB, 1);
+	w55fa93_gpio_set_output(GPIO_GROUP_D, KP_DIO);
+	for(i = 0; i <= 3; i++) {
 		// even more data shifting
-		for (j = 0; j <= 7; j++) {
-		  if ( ((*(_DWORD *)&v25[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
-			v24 = 8 * i + j;
-			if ( (*(_DWORD *)&v25[4 * i - 32] >> j) & 1 ) {
-				v24 |= 0x80u;
+		for(j = 0; j <= 7; j++) {
+		  if( ((*(_DWORD *)&v25[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
+			retKeyCode = 8 * i + j;
+			if( (*(_DWORD *)&v25[4 * i - 32] >> j) & 1 ) {
+				retKeyCode |= 0x80u;
 				keybuf_5624[i] |= 1 << j;
 			} else {
-				v24 &= 0x7Fu;
+				retKeyCode &= 0x7Fu;
 				keybuf_5624[i] &= ~(1 << j);
 			}
 			break;
@@ -120,67 +137,49 @@ int CH451_GetKeyCode()
 		}
 	}
 
-
-	if (!v24) {
+	if (!retKeyCode) {
 		// check if we have to perform model specific changes
 		if (motionVer != 28695 || subMotionVer == 2) {
-			if (float2int(dword_164700) == extkey_5625) {
-				if ( float2int(dword_164704) == dword_1215F8 ) {
-					if (float2int(dword_164708) == dword_121614) {
-						if ( float2int(dword_16470C) != dword_121618 ) {
-							v9 = dword_121618 == 0;
-							dword_121618 = dword_121618 == 0;
-							if ( v9 )
-								v16 = 122;
+			if ((int)dword_164700 == extkey_5625) {
+				if ((int)dword_164704 == dword_1215F8) {
+					if ((int)dword_164708 == dword_121614) {
+						if ((int)dword_16470C != dword_121618) {
+							if(dword_121618 = dword_121618 == 0)
+								retKeyCode = 122;
 							else
-								v16 = 250;
-							v24 = v16;
+								retKeyCode = 250;
 						}
 				  } else {
-					v8 = dword_121614 == 0;
-					dword_121614 = dword_121614 == 0;
-					if ( v8 )
-					  v15 = 121;
+					if(dword_121614 = dword_121614 == 0)
+					  retKeyCode = 121;
 					else
-					  v15 = 249;
-					v24 = v15;
+					  retKeyCode = 249;
 				  }
 				} else {
-				  v7 = dword_1215F8 == 0;
-				  dword_1215F8 = dword_1215F8 == 0;
-				  if ( v7 )
-					v14 = 114;
+				  if(dword_1215F8 = dword_1215F8 == 0)
+					retKeyCode = 114;
 				  else
-					v14 = 242;
-				  v24 = v14;
+					retKeyCode = 242;
 				}
 			  } else {
-				v6 = extkey_5625 == 0;
-				extkey_5625 = extkey_5625 == 0;
-				if ( v6 )
-				  v13 = 113;
+				if (extkey_5625 = extkey_5625 == 0)
+				  retKeyCode = 113;
 				else
-				  v13 = 241;
-				v24 = v13;
+				  retKeyCode = 241;
 			  }
-			} else if (w55fa93_gpio_get(3, 12) == extkey_5625) {
-			  if (w55fa93_gpio_get(3, 13) != dword_1215F8) {
-				v5 = dword_1215F8 == 0;
-				dword_1215F8 = dword_1215F8 == 0;
-				if (v5)
-				  v12 = 114;
+		} else if (w55fa93_gpio_get(3, 12) == extkey_5625) {
+			if(w55fa93_gpio_get(3, 13) != dword_1215F8) {
+				if(dword_1215F8 = dword_1215F8 == 0)
+				  retKeyCode = 114;
 				else
-				  v12 = 242;
-				v24 = v12;
+				  retKeyCode = 242;
 			  }
-			} else {
-				extkey_5625 = extkey_5625 == 0;
-				if (extkey_5625 == 0)
-					v11 = 113;
-				else
-					v11 = 241;
-				v24 = v11;
-			}
+		} else {
+			if (extkey_5625 = extkey_5625 == 0)
+				retKeyCode = 113;
+			else
+				retKeyCode = 241;
+		}
 	}
-	return v24;
+	return retKeyCode;
 }
