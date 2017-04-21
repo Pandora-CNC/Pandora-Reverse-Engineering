@@ -27,6 +27,8 @@ float dword_16470C; // weak
 // Group D, bit 0 is used for data in and data out; DIO
 // Group D, bit 1 is used for latching the data; latches on rising edge; CLK
 // Group D, bit 2 is some form of chip enable; active low; STB
+// Group D, bit 12 is never set, but is read and compared against extkey_5625
+// Group D, bit 13 is never set, but is read when ^ are equal; then !dword_1215F8 is checked
 	
 #define KP_DIO 0
 #define KP_CLK 1
@@ -99,8 +101,7 @@ int CH451_GetKeyCode()
 	char buf[20]; // v25, [sp+38h] [bp-14h]@6 // This is the buffer that we use to shift data in and out
 
 	// this shifts out the value KP_READKEYREGISTER (byte)66 (0x42; 0b01000010) through DIO
-	
-	w55fa93_gpio_set(GPIO_GROUP_D, KP_STB, 0);
+	w55fa93_gpio_set(GPIO_GROUP_D, KP_STB, 0); // disable standby
 	for(i = 0; i <= 7; i++) {
 		// shift out one bit at the time LSB to MSB
 		w55fa93_gpio_set(GPIO_GROUP_D, KP_DIO, (KP_READKEYREGISTER >> i) & 1);
@@ -108,13 +109,15 @@ int CH451_GetKeyCode()
 		w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 1);
 	}
 
-	w55fa93_gpio_set_input(GPIO_GROUP_D, KP_DIO);
+	w55fa93_gpio_set_input(GPIO_GROUP_D, KP_DIO); // switch DIO to output
 	usleep(1u); // sleep 1us
 
 	for(i = 0; i <= 3; i++) {
 		// More data shifting
 		for(j = 0; j <= 7; j++) {
 			w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 0);
+			// this is horrible code!
+			// this must be breaking the boundary of the buffer since for i=0, 4*0-32 = -32
 			buf[4 * i - 32] |= w55fa93_gpio_get(GPIO_GROUP_D, 0) << (7 - j);
 			w55fa93_gpio_set(GPIO_GROUP_D, KP_CLK, 1);
 		}
@@ -127,7 +130,7 @@ int CH451_GetKeyCode()
 		for(j = 0; j <= 7; j++) {
 		  if(((buf[4 * i - 32] >> j) & 1) != ((keybuf_5624[i] >> j) & 1) ) {
 			retKeyCode = 8 * i + j;
-			if((buf[4 * i - 32] >> j) & 1 ) {
+			if((buf[4 * i - 32] >> j) & 1) { // when bit is set
 				retKeyCode |= 0x80u;
 				keybuf_5624[i] |= 1 << j;
 			} else {
